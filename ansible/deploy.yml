@@ -1,0 +1,16 @@
+---
+  - hosts: localhost
+    connection: local
+    user: root
+
+    vars:
+      nb: "{{notebook}}"
+
+    tasks:
+      # The notebook should have the right extension.
+      - assert: { that: nb | match(".*\.ipynb") }
+
+      - name: convert the notebook to a python script.
+        shell: jupyter nbconvert --to script {{nb}} --output=/tmp/{{(notebook | regex_replace('^.*\/(.*)$', '\1') | splitext)[0]}}
+        args:
+          chdir: ../
