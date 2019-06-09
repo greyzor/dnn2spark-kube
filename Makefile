@@ -21,6 +21,11 @@ build:
 deploy:
 	ansible-playbook -v --connection=local ansible/deploy.yml
 
+# Submit a job to the cluster
+submit:
+	@ansible-galaxy install geerlingguy.java
+	ansible-playbook -v --connection=local ansible/submit.yml
+
 # Tools for build/deploy
 install_tools:
 	@./tools/install_minikube.sh

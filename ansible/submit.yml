@@ -1,0 +1,61 @@
+---
+  - hosts: localhost
+    connection: local
+    user: root
+
+    vars:
+      destroy_cluster_after_processing: false
+      logs_dir: /tmp/spark-kube-logs/
+      app_name: sparkpi # sparkpi: sample jar example submit for SparkPi class; otherwise custom python script.
+
+    roles:
+      - role: geerlingguy.java
+        when: "ansible_os_family == 'Debian'"
+        java_packages:
+          - openjdk-8-jdk
+        # become: yes
+
+    tasks:
+      - name: show current system pods, check that coredns is running properly.
+        shell: sudo kubectl get pods
+        # become: yes
+
+      - name: resolve cluster uri
+        shell: ../tools/kubernetes_resolve_cluster_uri.sh
+        register: cluster_uri
+
+      - name: show cluster uri
+        shell: echo {{cluster_uri.stdout}}
+
+      # ---------------- Submit the Spark job in deploy mode ----------------#
+      - name: create build directory
+        file:
+          path: "{{ item }}"
+          state: directory
+        with_items:
+          - "{{logs_dir}}"
+          - "{{logs_dir}}/{{app_name}}/"
+
+      - name: spark submit sample job
+        shell: sudo bin/spark-submit --verbose --master k8s://https://{{cluster_uri.stdout}}
+              --deploy-mode cluster --name {{app_name}} --class org.apache.spark.examples.SparkPi
+              --conf spark.executor.instances=5 --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark
+              --conf spark.kubernetes.container.image=spark:latest
+              --conf spark.driver.host=${SPARK_LOCAL_IP}
+              local:///opt/spark/examples/jars/spark-examples_2.11-2.4.3.jar
+        register: job_out
+        args:
+          chdir: ../build/spark/spark-2.4.3-bin-hadoop2.7/
+        when: app_name == "sparkpi"
+
+      - local_action: copy content={{job_out.stdout}} dest={{logs_dir}}/{{app_name}}/stdout.log
+      - local_action: copy content={{job_out.stderr}} dest={{logs_dir}}/{{app_name}}/stderr.log
+
+      - name: extract spark driver logs
+        shell: sudo kubectl logs $(cat {{logs_dir}}/{{app_name}}/stderr.log | grep "pod name" | uniq | sed -e 's/^.*pod\ name:\ \(.*\)/\1/g') > {{logs_dir}}/{{app_name}}/driver.log
+
+      # ---------------- Release resources ----------------#
+      - name: delete the cluster.
+        shell: sudo minikube delete
+        when: "{{ destroy_cluster_after_processing|bool == true }}"
+        # become: yes
