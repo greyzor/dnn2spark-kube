@@ -1,0 +1,24 @@
+---
+  - hosts: localhost
+    connection: local
+    user: root
+
+    vars:
+      nb: "{{notebook}}"
+
+    tasks:
+
+      - name: create build directory
+        file:
+          path: "{{ item }}"
+          state: directory
+        with_items:
+          - ../build/python/scripts
+
+      # The notebook should have the right extension.
+      - assert: { that: nb | match(".*\.ipynb") }
+
+      - name: convert the notebook to a python script.
+        shell: jupyter nbconvert --to script {{nb}} --output=../build/python/scripts/{{(notebook | regex_replace('^.*\/(.*)$', '\1') | splitext)[0]}}
+        args:
+          chdir: ../
