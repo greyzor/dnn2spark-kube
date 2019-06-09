@@ -14,11 +14,25 @@
           state: directory
         with_items:
           - ../build/python/scripts
+          - ../build/spark/
 
       # The notebook should have the right extension.
       - assert: { that: nb | match(".*\.ipynb") }
 
+      #---------------- Notebooks ----------------#
       - name: convert the notebook to a python script.
         shell: jupyter nbconvert --to script {{nb}} --output=../build/python/scripts/{{(notebook | regex_replace('^.*\/(.*)$', '\1') | splitext)[0]}}
         args:
           chdir: ../
+
+      #---------------- Spark ----------------#
+      - name: Download Spark 2.4x
+        get_url:
+          url: https://www-us.apache.org/dist/spark/spark-2.4.3/spark-2.4.3-bin-hadoop2.7.tgz
+          dest: ../build/spark/
+          mode: '0440'
+
+      - name: Extract Spark source
+        shell: tar -xvzf spark-2.4.3-bin-hadoop2.7.tgz
+        args:
+          chdir: ../build/spark/
