@@ -19,7 +19,7 @@
       # The notebook should have the right extension.
       - assert: { that: nb | match(".*\.ipynb") }
 
-      #---------------- Notebooks ----------------#
+      # ---------------- Notebooks ----------------#
       - name: convert the notebook to a python script.
         shell: jupyter nbconvert --to script {{nb}} --output=../build/python/scripts/{{(notebook | regex_replace('^.*\/(.*)$', '\1') | splitext)[0]}}
         args:
@@ -30,9 +30,37 @@
         get_url:
           url: https://www-us.apache.org/dist/spark/spark-2.4.3/spark-2.4.3-bin-hadoop2.7.tgz
           dest: ../build/spark/
-          mode: '0440'
+          mode: '0755'
 
       - name: Extract Spark source
         shell: tar -xvzf spark-2.4.3-bin-hadoop2.7.tgz
         args:
           chdir: ../build/spark/
+
+      # ---------------- Docker image for Spark/Kubernetes ----------------#
+      # 1. build base image
+      - name: Build Spark image for Kubernetes from official sources, no push.
+        command: docker build -t spark:latest -f kubernetes/dockerfiles/spark/Dockerfile .
+        args:
+          chdir: ../build/spark/spark-2.4.3-bin-hadoop2.7/
+
+      - name: Install docker-py
+        pip: name=docker-py
+        become: yes
+
+      # workaround for: docker (ADD/COPY) forbidden path outside the build context.
+      - name: Copy py_scripts inside docker context.
+        copy:
+          src: ../build/python/scripts/
+          dest: ../docker/py_scripts/
+
+      # 2. customize image (should contain notebooks)
+      - name: Customize base image by adding py scripts.
+        docker_image:
+          name: spark-keras-nb:latest
+          tag: latest
+          source: build
+          build:
+            path: ../docker/
+            pull: no # build from local spark:latest image.
+          push: no
