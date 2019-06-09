@@ -2,3 +2,52 @@
   - hosts: localhost
     connection: local
     user: root
+
+    vars:
+      cpus: 2
+      memory: 1024
+      vm_driver: none
+
+    tasks:
+      # ---------------- Start Kubernetes Cluster ----------------#
+      - name: start the a kubernetes cluster using minikube.
+        shell: sudo minikube start --cpus {{cpus}} --memory {{memory}} --vm-driver={{vm_driver}}
+        args:
+          chdir: ../
+#        become: yes
+
+      # Issue-1:
+      #   x509: certificate signed by unknown authority when installing cluster with kops
+      #   https://github.com/kubernetes/kops/issues/964
+      #
+      # To start using your cluster, you need to run the following as a regular user:
+      #   mkdir -p $HOME/.kube
+      #   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+      #   sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+      - name: show current system pods, check that coredns is running properly.
+        shell: sudo kubectl -n kube-system get pods
+#        become: yes
+
+      # ---------------- Configure service accounts ----------------#
+      - name: create service account for spark.
+        shell: sudo kubectl create serviceaccount spark
+#        become: yes
+        ignore_errors: yes
+
+      - name: create cluster role for driver (api-server, scheduler) to get/edit other resources;
+              necessary for spark deploy mode.
+        shell: sudo kubectl create clusterrolebinding spark-role --clusterrole=edit --serviceaccount=default:spark --namespace=default
+#        become: yes
+        ignore_errors: yes
+
+      # ---------------- Path coredns ----------------#
+      # patch configmap for coredns to avoid looping
+      - name: Edit configmap for coredns to avoid looping
+        shell: sudo kubectl -n kube-system get configmap coredns -o yaml | sed "/loop/d" | sudo kubectl -n kube-system replace -f -
+
+      - name: kill coredns pods, the auto restart thereafter.
+        shell: sudo kubectl -n kube-system delete pod -l k8s-app=kube-dns
+
+      - name: show current system pods, check that coredns is running properly.
+        shell: sudo kubectl -n kube-system get pods
