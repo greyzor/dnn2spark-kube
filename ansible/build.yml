@@ -39,10 +39,10 @@
 
       # ---------------- Docker image for Spark/Kubernetes ----------------#
       # 1. build base image
-      - name: Build Spark image for Kubernetes from official sources, no push.
-        command: docker build -t spark:latest -f kubernetes/dockerfiles/spark/Dockerfile .
-        args:
-          chdir: ../build/spark/spark-2.4.3-bin-hadoop2.7/
+      # - name: Build Spark image for Kubernetes from official sources, no push.
+      #   command: docker build -t spark:latest -f kubernetes/dockerfiles/spark/Dockerfile .
+      #   args:
+      #     chdir: ../build/spark/spark-2.4.3-bin-hadoop2.7/
 
       - name: Install docker-py
         pip: name=docker-py
@@ -54,13 +54,33 @@
           src: ../build/python/scripts/
           dest: ../docker/py_scripts/
 
-      # 2. customize image (should contain notebooks)
-      - name: Customize base image by adding py scripts.
-        docker_image:
-          name: spark-keras-nb:latest
-          tag: latest
-          source: build
-          build:
-            path: ../docker/
-            pull: no # build from local spark:latest image.
-          push: no
+      - name: Create spark directory for docker build (redundant copy since added files must be in docker context)
+        file:
+          path: ../docker/spark
+          state: directory
+
+      # prepare spark for docker build
+      - name: Copy spark inside docker context.
+        copy:
+          src: ../build/spark/spark-2.4.3-bin-hadoop2.7/{{ item }}
+          dest: ../docker/spark/{{ item }}
+        with_items:
+          - jars/
+          - bin/
+          - sbin/
+          - kubernetes/dockerfiles/spark/entrypoint.sh
+          - examples
+          - /kubernetes/tests
+          - data/
+
+      # patch entrypoint.sh
+      - name: Patch entrypoint, official one was for alpine while we are building a ubuntu/deb based image.
+        copy:
+          src: ../docker/entrypoint.sh
+          dest: ../docker/spark/kubernetes/dockerfiles/spark/entrypoint.sh
+
+      # docker build
+      - name: Build docker image for spark+keras.
+        command: docker build -t spark-keras-nb -f Dockerfile .
+        args:
+          chdir: ../docker
