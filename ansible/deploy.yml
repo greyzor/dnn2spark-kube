@@ -4,8 +4,8 @@
     user: root
 
     vars:
-      cpus: 2
-      memory: 1024
+      cpus: 3
+      memory: 2048
       vm_driver: none
 
     tasks:
@@ -41,7 +41,7 @@
 #        become: yes
         ignore_errors: yes
 
-      # ---------------- Path coredns ----------------#
+      # ---------------- Patch coredns ----------------#
       # patch configmap for coredns to avoid looping
       - name: Edit configmap for coredns to avoid looping
         shell: sudo kubectl -n kube-system get configmap coredns -o yaml | sed "/loop/d" | sudo kubectl -n kube-system replace -f -

@@ -6,7 +6,8 @@
     vars:
       destroy_cluster_after_processing: false
       logs_dir: /tmp/spark-kube-logs/
-      app_name: sparkpi # sparkpi: sample jar example submit for SparkPi class; otherwise custom python script.
+      app_name: custom-app # sparkpi: sample jar example submit for SparkPi class; otherwise custom python script.
+      # app_name: sparkpi # sparkpi: sample jar example submit for SparkPi class; otherwise custom python script.
 
     roles:
       - role: geerlingguy.java
@@ -38,15 +39,28 @@
 
       - name: spark submit sample job
         shell: sudo bin/spark-submit --verbose --master k8s://https://{{cluster_uri.stdout}}
-              --deploy-mode cluster --name {{app_name}} --class org.apache.spark.examples.SparkPi
-              --conf spark.executor.instances=5 --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark
-              --conf spark.kubernetes.container.image=spark:latest
-              --conf spark.driver.host=${SPARK_LOCAL_IP}
+              --deploy-mode cluster --name {{app_name}}
+              --class org.apache.spark.examples.SparkPi
+              --conf spark.executor.instances=2
+              --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark
+              --conf spark.kubernetes.container.image=spark-keras-nb:latest
               local:///opt/spark/examples/jars/spark-examples_2.11-2.4.3.jar
         register: job_out
         args:
           chdir: ../build/spark/spark-2.4.3-bin-hadoop2.7/
         when: app_name == "sparkpi"
+
+      - name: spark submit custom job
+        shell: sudo bin/spark-submit --verbose --master k8s://https://{{cluster_uri.stdout}}
+              --deploy-mode cluster --name {{app_name}}
+              --conf spark.executor.instances=2
+              --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark
+              --conf spark.kubernetes.container.image=spark-keras-nb:latest
+              /opt/py_scripts/imdb_sentiment_analysis_keras_spark.py # FIXME: get it from variables
+        register: job_out
+        args:
+          chdir: ../build/spark/spark-2.4.3-bin-hadoop2.7/
+        when: app_name != "sparkpi"
 
       - local_action: copy content={{job_out.stdout}} dest={{logs_dir}}/{{app_name}}/stdout.log
       - local_action: copy content={{job_out.stderr}} dest={{logs_dir}}/{{app_name}}/stderr.log
