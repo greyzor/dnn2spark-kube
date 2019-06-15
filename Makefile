@@ -1,5 +1,5 @@
 
-NOTEBOOK_PATH="notebooks/imdb_sentiment_analysis_tensorflow_spark.ipynb"
+NOTEBOOK_PATH="notebooks/imdb_sentiment_analysis_keras_spark.ipynb"
 
 all: clean config build deploy
 
