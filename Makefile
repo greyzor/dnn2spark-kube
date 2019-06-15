@@ -15,16 +15,21 @@ dev:
 # Build image
 build:
 	ansible-playbook -v --connection=local ansible/build.yml\
-					--extra-vars "notebook=${NOTEBOOK_PATH}"
+					--extra-vars "notebook=${NOTEBOOK_PATH}"\
+					--ask-become-pass
 
 # Deploy Kubernetes/Spark cluster
 deploy:
-	ansible-playbook -v --connection=local ansible/deploy.yml
+	ansible-playbook -v --connection=local ansible/deploy.yml\
+					--ask-become-pass
+
 
 # Submit a job to the cluster
 submit:
 	@ansible-galaxy install geerlingguy.java
-	ansible-playbook -v --connection=local ansible/submit.yml
+	ansible-playbook -v --connection=local ansible/submit.yml\
+					--ask-become-pass
+
 
 # Tools for build/deploy
 install_tools:
