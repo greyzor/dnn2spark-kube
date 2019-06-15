@@ -46,6 +46,9 @@
       - name: Edit configmap for coredns to avoid looping
         shell: sudo kubectl -n kube-system get configmap coredns -o yaml | sed "/loop/d" | sudo kubectl -n kube-system replace -f -
 
+      - name: WIP - Patch coredns to proxy to google ns - Not Yet Working !
+        shell: sudo kubectl -n kube-system get configmap coredns -o yaml | sed "s/forward . \/etc.resolv.conf/proxy . 8.8.8.8/g"  | sudo kubectl -n kube-system replace -f -
+
       - name: kill coredns pods, the auto restart thereafter.
         shell: sudo kubectl -n kube-system delete pod -l k8s-app=kube-dns
 
